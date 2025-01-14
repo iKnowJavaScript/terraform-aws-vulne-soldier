@@ -19,7 +19,7 @@ module "remediation" {
   aws_region       = "us-east-1"
   account_id       = "2324334432"
   lambda_log_group = "/aws/lambda/vulne-soldier-compliance-remediate"
-  lambda_zip       = "lambda.zip"
+  lambda_zip       = "../../lambda.zip"
   remediation_options = {
     region                                     = "us-east-1"
     reboot_option                              = "NoReboot"
