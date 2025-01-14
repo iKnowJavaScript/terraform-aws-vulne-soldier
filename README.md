@@ -1,6 +1,6 @@
 # vulne-soldier: A Modern Day AWS EC2 Vulnerability Remediation Tool
 
-[![Terraform registry](https://img.shields.io/badge/Terraform_Registry-0.0.2-blue)](https://registry.terraform.io/modules/iKnowJavaScript/vulne-soldier-compliance-remediate/aws/latest)
+[![Terraform registry](https://img.shields.io/badge/Terraform_Registry-0.0.2-blue)](https://registry.terraform.io/modules/iKnowJavaScript/vulne-soldier/aws/latest)
 [![Terraform](https://img.shields.io/badge/Terraform-0.0.2-623CE4)](https://www.terraform.io)
 [![License](https://img.shields.io/badge/License-MIT-blue.svg)](https://opensource.org/licenses/MIT)
 
