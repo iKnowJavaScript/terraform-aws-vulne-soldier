@@ -17,6 +17,9 @@ This module provisions:
 - AWS CloudWatch event rules
 - IAM roles and policies
 
+
+![Architecture](assets/component-overview.png)
+
 ## Usage
 
 ### Setup terraform module
