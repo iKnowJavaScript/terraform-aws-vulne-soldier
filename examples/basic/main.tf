@@ -1,5 +1,6 @@
 module "remediation" {
-  source = "../../"
+  source  = "iKnowJavaScript/vulne-soldier/aws"
+  version = "1.0.2"
 
   name             = "vulne-soldier-compliance-remediate"
   environment      = "dev"
