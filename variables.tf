@@ -23,6 +23,12 @@ variable "lambda_log_group" {
   type        = string
 }
 
+variable "lambda_zip" {
+  description = "File location of the lambda zip file for remediation."
+  type        = string
+  default     = null
+}
+
 variable "remediation_options" {
   description = "Options for the remediation document"
   type = object({
@@ -30,15 +36,15 @@ variable "remediation_options" {
     reboot_option                              = string
     target_ec2_tag_name                        = string
     target_ec2_tag_value                       = string
-    vulnerability_severities                   = list(string)
-    override_findings_for_target_instances_ids = list(string)
+    vulnerability_severities                   = string
+    override_findings_for_target_instances_ids = string
   })
   default = {
     region                                     = "us-east-1"
     reboot_option                              = "NoReboot"
     target_ec2_tag_name                        = "AmazonECSManaged"
     target_ec2_tag_value                       = "true"
-    vulnerability_severities                   = ["CRITICAL, HIGH"]
-    override_findings_for_target_instances_ids = []
+    vulnerability_severities                   = "CRITICAL, HIGH"
+    override_findings_for_target_instances_ids = null
   }
 }
