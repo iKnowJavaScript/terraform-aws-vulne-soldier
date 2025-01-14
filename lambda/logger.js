@@ -7,7 +7,9 @@ const LogLevel = {
 };
 
 class Logger {
-  constructor(logLevel) {}
+  constructor(logLevel) {
+    this.logLevel = logLevel;
+  }
 
   error(...args) {
     if (this.logLevel >= LogLevel.error) {
@@ -32,5 +34,5 @@ const logLevel =
     INFO: LogLevel.info,
     DEBUG: LogLevel.debug,
   }[process.env.LOG_LEVEL ?? "NONE"] ?? LogLevel.none;
-  
-export let logger = new Logger(logLevel);
+
+module.exports = new Logger(logLevel);

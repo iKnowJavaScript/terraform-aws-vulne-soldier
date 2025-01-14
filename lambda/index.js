@@ -1,14 +1,15 @@
-import { logger } from './logger';
+const AWS = require("aws-sdk");
+const logger = require('./logger');
 
 exports.handler = async (event) => {
   const REGION = event.region || 'us-east-1';
   const REBOOT_OPTION = event.reboot_option || "NoReboot";
   const TARGET_EC2_TAG_NAME = event.target_ec2_tag_name;
   const TARGET_EC2_TAG_VALUE = event.target_ec2_tag_value;
-  const VULNERABILITY_SEVERITIES = event.vulnerability_severities 
-        && event.vulnerability_severities.split(',').map(a => a.trim().toUpperCase());
-  const OVERRIDE_FINDINGS_FOR_TARGET_INSTANCES_IDS = event.override_findings_for_target_instances_ids 
-        && event.override_findings_for_target_instances_ids.split(',').map(a => a.trim());
+  const VULNERABILITY_SEVERITIES = (event.vulnerability_severities 
+        && event.vulnerability_severities?.split(',')?.map(a => a.trim().toUpperCase())) || [];
+  const OVERRIDE_FINDINGS_FOR_TARGET_INSTANCES_IDS = (event.override_findings_for_target_instances_ids 
+        && event.override_findings_for_target_instances_ids?.split(',')?.map(a => a.trim())) || [];
 
   logger.info("Region is ", REGION);
   logger.info("Reboot option is ", REBOOT_OPTION);
@@ -18,9 +19,14 @@ exports.handler = async (event) => {
   logger.info("Override findings for target instances IDs are ", OVERRIDE_FINDINGS_FOR_TARGET_INSTANCES_IDS);
 
   try {
-    const ecsManagedInstanceIds = await getECSManagedInstances(REGION, TARGET_EC2_TAG_NAME, TARGET_EC2_TAG_VALUE);
+    let ecsManagedInstanceIds = [];
+    if (OVERRIDE_FINDINGS_FOR_TARGET_INSTANCES_IDS && OVERRIDE_FINDINGS_FOR_TARGET_INSTANCES_IDS.length > 0) {
+      ecsManagedInstanceIds = OVERRIDE_FINDINGS_FOR_TARGET_INSTANCES_IDS;
+    } else {
+      ecsManagedInstanceIds = await getECSManagedInstances(REGION, TARGET_EC2_TAG_NAME, TARGET_EC2_TAG_VALUE);
+    }
 
-    const { targetInstances, totalFindings } = await manageInstanceFindings(ecsManagedInstanceIds, REGION, VULNERABILITY_SEVERITIES, OVERRIDE_FINDINGS_FOR_TARGET_INSTANCES_IDS);
+    const { targetInstances, totalFindings } = await manageInstanceFindings(ecsManagedInstanceIds, REGION, VULNERABILITY_SEVERITIES);
 
     if (!targetInstances.length) {
       return {
@@ -31,12 +37,15 @@ exports.handler = async (event) => {
     }
 
     const ssm = new AWS.SSM({ region: REGION });
+    const logConfig = process.env.LAMBDA_LOG_GROUP ? {
+      CloudWatchOutputConfig: {
+        CloudWatchLogGroupName: process.env.LAMBDA_LOG_GROUP,
+        CloudWatchOutputEnabled: true
+      }
+    } : {};
     const patchResult = await ssm
       .sendCommand({
-        CloudWatchOutputConfig: {
-          CloudWatchLogGroupName: process.env.LAMBDA_LOG_GROUP || '',
-          CloudWatchOutputEnabled: true
-        },
+        ...logConfig,
         Comment: 'Lambda function trigger operation for inspector finding auto-remediation',
         DocumentName: "AWS-RunPatchBaseline",
         DocumentVersion: "1",
@@ -120,7 +129,7 @@ async function getInstanceInspectorFindings(instanceId, region, severities) {
   return data.findings;
 }
 
-async function manageInstanceFindings(ecsManagedInstanceIds, region, severities, overrideInstanceIds) {
+async function manageInstanceFindings(ecsManagedInstanceIds, region, severities) {
   const targetInstances = [];
   let totalFindings = 0;
 
@@ -136,12 +145,12 @@ async function manageInstanceFindings(ecsManagedInstanceIds, region, severities,
     findings = findings.filter((finding) => !(skippingTitles.includes(finding.title)))
     logger.info('Total findings for instanceID ' + instanceId + ' after title check is ' + findings.length);
 
-    totalFindings = totalFindings += findings.length;
-
+    
     const resource = findings[0].resources[0];
-
+    
     // Check resource type to match expected remediation action:
     if (resource.type === "AWS_EC2_INSTANCE") {
+      totalFindings = totalFindings += findings.length;
       targetInstances.push(instanceId);
     }
   }
