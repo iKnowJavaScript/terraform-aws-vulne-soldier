@@ -61,6 +61,11 @@ provider "aws" {
 }
 ```
 
+### Triggers Remediation Process
+![Vulnerability Remediation Trigger](assets/document-screenshot.png)
+On successful deployment, navigate to the AWS Systems Manager console and search for the SSM document created by the module (vulne-soldier-compliance-remediate-inspector-findings) or similar. You can trigger the remediation process by running the document on the affected EC2 instances. You can also create an AWS CloudWatch event rule to automate the process based on AWS Inspector findings.
+
+
 ## Inputs
 
 | Name                                     | Description                                                                 | Type          | Default                                    | Required |
