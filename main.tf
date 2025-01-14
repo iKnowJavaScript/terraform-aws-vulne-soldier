@@ -5,6 +5,7 @@ provider "aws" {
 locals {
   function_name     = "${var.name}-${var.environment}"
   ssm_document_name = "${var.name}-inspector-findings-${var.environment}"
+  lambda_zip        = var.lambda_zip
 }
 
 resource "aws_ssm_document" "remediation_document" {
@@ -21,29 +22,29 @@ resource "aws_ssm_document" "remediation_document" {
       "description": "(Required) The region to use.",
       "default": "${var.remediation_options.region}"
     },
-    "reboot_option": {
+    "rebootOption": {
       "type": "String",
       "description": "(Optional) Reboot option for patching. Allowed values: NoReboot, RebootIfNeeded, AlwaysReboot",
       "default": "${var.remediation_options.reboot_option}"
     },
-    "target_ec2_tag_name": {
+    "targetEC2TagName": {
       "type": "String",
       "description": "The tag name to filter EC2 instances.",
       "default": "${var.remediation_options.target_ec2_tag_name}"
     },
-    "target_ec2_tag_value": {
+    "targetEC2TagValue": {
       "type": "String",
       "description": "The tag value to filter EC2 instances.",
       "default": "${var.remediation_options.target_ec2_tag_value}"
     },
-    "vulnerability_severities": {
-      "type": "StringList",
-      "description": "(Optional) List of vulnerability severities to filter findings. Allowed values are comma separated list of : CRITICAL, HIGH, MEDIUM, LOW, INFORMATIONAL",
+    "vulnerabilitySeverities": {
+      "type": "String",
+      "description": "(Optional) Comma separated list of vulnerability severities to filter findings. Allowed values are comma separated list of : CRITICAL, HIGH, MEDIUM, LOW, INFORMATIONAL",
       "default": "${var.remediation_options.vulnerability_severities}"
     },
-    "override_findings_for_target_instances_ids": {
-      "type": "StringList",
-      "description": "(Optional) List of instance IDs to override findings for target instances. If not provided, all matched findings will be remediated. Values are in comma separated list of instance IDs.",
+    "overrideFindingsForTargetInstancesIDs": {
+      "type": "String",
+      "description": "(Optional) Comma separated list of instance IDs to override findings for target instances. If not provided, all matched findings will be remediated. Values are in comma separated list of instance IDs.",
       "default": "${var.remediation_options.override_findings_for_target_instances_ids}"
     }
   },
@@ -53,7 +54,7 @@ resource "aws_ssm_document" "remediation_document" {
       "action": "aws:invokeLambdaFunction",
       "inputs": {
         "FunctionName": "arn:aws:lambda:${var.aws_region}:${var.account_id}:function:${local.function_name}",
-        "Payload": "{ \"region\": \"{{ region }}\", \"reboot_option\": \"{{ reboot_option }}\", \"target_ec2_tag_name\": \"{{ target_ec2_tag_name }}\", \"target_ec2_tag_value\": \"{{ target_ec2_tag_value }}\", \"vulnerability_severities\": \"{{ vulnerability_severities }}\", \"override_findings_for_target_instances_ids\": \"{{ override_findings_for_target_instances_ids }}\" }"
+        "Payload": "{ \"region\": \"{{ region }}\", \"reboot_option\": \"{{ rebootOption }}\", \"target_ec2_tag_name\": \"{{ targetEC2TagName }}\", \"target_ec2_tag_value\": \"{{ targetEC2TagValue }}\", \"vulnerability_severities\": \"{{ vulnerabilitySeverities }}\", \"override_findings_for_target_instances_ids\": \"{{ overrideFindingsForTargetInstancesIDs }}\" }"
       }
     }
   ]
@@ -200,12 +201,12 @@ resource "aws_iam_role_policy" "lambda_policy" {
 
 
 resource "aws_lambda_function" "inspector_remediation" {
-  filename         = "../../lambda.zip" # You should zip your lambda_function.js before deploying
+  filename         = local.lambda_zip # You should zip your lambda_function.js before deploying
   function_name    = local.function_name
   role             = aws_iam_role.lambda_execution_role.arn
-  handler          = "findings-remediate.handler"
+  handler          = "index.handler"
   runtime          = "nodejs18.x"
-  source_code_hash = filebase64sha256("./lambda.zip")
+  source_code_hash = filebase64sha256(local.lambda_zip)
 
   timeout = 300
 
