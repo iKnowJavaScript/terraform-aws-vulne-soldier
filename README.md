@@ -19,6 +19,16 @@ This module provisions:
 
 ## Usage
 
+### Setup terraform module
+
+#### Download lambda
+
+To apply the terraform module, the compiled lambdas (.zip files) need to be available locally. They can either be downloaded from the GitHub release page or built locally.
+
+The lambdas can be downloaded manually from the [release page](https://github.com/iKnowJavaScript/terraform-aws-vulne-soldier/releases) or by building the Lambda folder using Node.
+
+For local development you can build the lambdas at once using `/lambda` or individually using `npm zip`.
+
 ### Example Configuration
 
 To deploy the `vulne-soldier` module, you can use the following configuration in your Terraform setup:
@@ -32,7 +42,7 @@ module "remediation" {
   aws_region       = "us-east-1"
   account_id       = "2123232323"
   lambda_log_group = "/aws/lambda/vulne-soldier-compliance-remediate"
-  lambda_zip       = "lambda.zip"
+  lambda_zip       = "./lambda.zip"
   remediation_options = {
     region                                     = "us-east-1"
     reboot_option                              = "NoReboot"
