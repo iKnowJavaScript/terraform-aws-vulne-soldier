@@ -1,0 +1,25 @@
+{
+  "name": "manual-compliance-remediate-lambda-function",
+  "version": "1.0.0",
+  "description": "Lambda function that handles compliance findings and remediate it.",
+  "main": "manual-compliance-remediate.js",
+  "engines": {
+    "node": "18",
+    "npm": "9"
+  },
+  "scripts": {
+    "test": "echo \"Error: no test specified\" && exit 1",
+    "start": "node manual-compliance-remediate.js",
+    "zip": "zip -r ../lambda.zip ."
+  },
+  "keywords": [
+    "aws",
+    "lambda",
+    "compliance"
+  ],
+  "author": "Victor Omolayo",
+  "license": "ISC",
+  "dependencies": {
+    "aws-sdk": "^2.1531.0"
+  }
+}
