@@ -32,6 +32,7 @@ module "remediation" {
   aws_region       = "us-east-1"
   account_id       = "2123232323"
   lambda_log_group = "/aws/lambda/vulne-soldier-compliance-remediate"
+  lambda_zip       = "lambda.zip"
   remediation_options = {
     region                                     = "us-east-1"
     reboot_option                              = "NoReboot"
@@ -56,13 +57,14 @@ provider "aws" {
 | `aws_region`                             | AWS region where the resources will be created                              | `string`      | n/a                                        | yes      |
 | `account_id`                             | AWS account ID                                                              | `string`      | n/a                                        | yes      |
 | `lambda_log_group`                       | Name of the CloudWatch Log Group for the Lambda function                    | `string`      | n/a                                        | yes      |
+| `lambda_zip`                             | File location of the lambda zip file for remediation                                                              | `string`      | `lambda.zip`                                        | yes      |
 | `remediation_options`                    | Options for the remediation document                                        | `object`      | n/a                                        | yes      |
 | `remediation_options.region`             | The region to use                                                           | `string`      | `us-east-1`                                | no       |
 | `remediation_options.reboot_option`      | Reboot option for patching                                                  | `string`      | `NoReboot`                                 | no       |
 | `remediation_options.target_ec2_tag_name`| The tag name to filter EC2 instances                                        | `string`      | `AmazonECSManaged`                         | no       |
 | `remediation_options.target_ec2_tag_value`| The tag value to filter EC2 instances                                       | `string`      | `true`                                     | no       |
-| `remediation_options.vulnerability_severities`| List of vulnerability severities to filter findings                        | `list(string)`| `["CRITICAL, HIGH"]`                       | no       |
-| `remediation_options.override_findings_for_target_instances_ids`| List of instance IDs to override findings for target instances              | `list(string)`| `[]`                                       | no       |
+| `remediation_options.vulnerability_severities`| Comma separated list of vulnerability severities to filter findings                        | `string`| `"CRITICAL, HIGH"`                       | no       |
+| `remediation_options.override_findings_for_target_instances_ids`| Comma separated list of instance IDs to override findings for target instances              | `string`| `""`                                       | no       |
 
 ## Outputs
 
