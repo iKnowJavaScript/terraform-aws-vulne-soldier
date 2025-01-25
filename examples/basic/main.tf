@@ -5,7 +5,7 @@ module "remediation" {
   name             = "vulne-soldier-compliance-remediate"
   environment      = "dev"
   aws_region       = "us-east-1"
-  account_id       = "2132323212_dummmmy"
+  account_id       = "111122223333"
   lambda_log_group = "/aws/lambda/vulne-soldier-compliance-remediate"
   lambda_zip       = "../../lambda.zip"
   remediation_options = {
