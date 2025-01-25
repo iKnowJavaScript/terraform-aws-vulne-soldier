@@ -5,6 +5,7 @@ provider "aws" {
 locals {
   function_name     = "${var.name}-${var.environment}"
   ssm_document_name = "${var.name}-inspector-findings-${var.environment}"
+  # You can specify the vulnerability severities to filter findings: default is CRITICAL and HIGH vulnerabilities
   lambda_zip        = var.lambda_zip
 }
 

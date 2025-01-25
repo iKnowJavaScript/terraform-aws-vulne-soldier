@@ -28,7 +28,9 @@ This module provisions:
 
 To apply the terraform module, the compiled lambdas (.zip files) need to be available locally. They can either be downloaded from the GitHub release page or built locally.
 
-The lambdas can be downloaded manually from the [release page](https://github.com/iKnowJavaScript/terraform-aws-vulne-soldier/releases) or by building the Lambda folder using Node.
+> **Info**
+
+> The lambdas can be downloaded from the [release page](https://github.com/iKnowJavaScript/terraform-aws-vulne-soldier/releases) or by building the Lambda folder using Node.
 
 For local development you can build the lambdas at once using `/lambda` or individually using `npm zip`.
 
@@ -49,8 +51,10 @@ module "remediation" {
   remediation_options = {
     region                                     = "us-east-1"
     reboot_option                              = "NoReboot"
+    # You need to specify the tag name and value of the EC2 instances you want to remediate
     target_ec2_tag_name                        = "AmazonECSManaged"
     target_ec2_tag_value                       = "true"
+    # You can specify the vulnerability severities to filter findings: default is CRITICAL and HIGH vulnerabilities
     vulnerability_severities                   = ["CRITICAL, HIGH"]
     override_findings_for_target_instances_ids = []
   }
