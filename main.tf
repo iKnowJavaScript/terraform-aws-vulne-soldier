@@ -62,34 +62,38 @@ resource "aws_ssm_document" "remediation_document" {
 DOC
 }
 
-# Set up an EventBridge rule that triggers on AWS Inspector findings.
-resource "aws_cloudwatch_event_rule" "inspector_findings" {
-  name        = "manual-inspector-findings-rule"
-  description = "Triggers on AWS Inspector findings."
+resource "aws_cloudwatch_event_rule" "inspector_findings_last" {
+  name                = "manual-inspector-findings-rule-last"
+  description         = "Triggers SSM remediation document on the last day of each month."
+  schedule_expression = "cron(0 2 L * ? *)"
 
-  event_pattern = jsonencode({
-    source        = ["aws.inspector"],
-    "detail-type" = ["Inspector Finding"],
-    detail = {
-      severity = ["High", "Critical", "MEDIUM", "LOW", "INFORMATIONAL"]
-    }
-  })
+  tags = {
+    Environment = var.environment
+    Name        = "manual-inspector-findings-rule-last-${var.environment}"
+  }
 }
 
-resource "aws_cloudwatch_event_target" "ssm_remediation" {
-  rule      = aws_cloudwatch_event_rule.inspector_findings.name
+resource "aws_cloudwatch_event_target" "ssm_remediation_last" {
+  rule      = aws_cloudwatch_event_rule.inspector_findings_last.name
   target_id = "SSMVulneRemediationTarget"
   arn       = aws_ssm_document.remediation_document.arn
+  input     = jsonencode({ 
+    region = var.remediation_options.region, 
+    rebootOption = var.remediation_options.reboot_option,
+    targetEC2TagName = var.remediation_options.target_ec2_tag_name,
+    targetEC2TagValue = var.remediation_options.target_ec2_tag_value,
+    vulnerabilitySeverities = var.remediation_options.vulnerability_severities,
+    overrideFindingsForTargetInstancesIDs = var.remediation_options.override_findings_for_target_instances_ids,
+  })
 
-  run_command_targets {
-    key    = "tag:${var.remediation_options.target_ec2_tag_name}"
-    values = [var.remediation_options.target_ec2_tag_value]
-  }
-
-
-  role_arn = aws_iam_role.ssm_role.arn
+  role_arn  = aws_iam_role.ssm_role.arn
 }
 
+resource "aws_cloudwatch_event_target" "sns_inspector_alert_last" {
+  rule      = aws_cloudwatch_event_rule.inspector_findings_last.name
+  target_id = "InspectorCriticalHighAlertsSNS-Last"
+  arn       = var.ssn_notification_topic_arn
+}
 
 resource "aws_iam_role" "ssm_role" {
   name = "SSMVulneAutomationRole"
