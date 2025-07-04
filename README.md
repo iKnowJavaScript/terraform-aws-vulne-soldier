@@ -6,6 +6,12 @@
 
 This Terraform module consists of the configuration for automating the remediation of AWS EC2 vulnerabilities using AWS Inspector findings. It provisions essential resources such as an SSM document, Lambda function, and CloudWatch event rules for automated vulnerability management.
 
+## Prerequisites
+
+> **Important**
+>
+> The AWS Systems Manager (SSM) agent **must be installed and running** on all EC2 instances you wish to remediate. Without SSM, this module cannot trigger remediation actions on your instances.
+
 ## Description
 
 This Terraform module sets up an automated vulnerability remediation environment optimized for production use. By creating an SSM document to define the remediation steps, setting up a Lambda function to execute the remediation, and establishing CloudWatch event rules to trigger the process based on AWS Inspector findings, the module offers a straightforward approach to managing EC2 vulnerabilities on AWS.
@@ -71,6 +77,16 @@ provider "aws" {
 ![Vulnerability Remediation Trigger](assets/document-screenshot.png)
 On successful deployment, navigate to the AWS Systems Manager console and search for the SSM document created by the module (vulne-soldier-compliance-remediate-inspector-findings) or similar. You can trigger the remediation process by running the document on the affected EC2 instances. You can also create an AWS CloudWatch event rule to automate the process based on AWS Inspector findings.
 
+
+## What's New in v2
+
+- Remediation is now **automated** using EventBridge rules, running by default with the `NoReboot` option for minimal disruption. You can update this option as needed in your configuration.
+
+## Walkthrough Video
+
+[![v2 Walkthrough](assets/v2-walkthrough.mov)](assets/v2-walkthrough.mov)
+
+> Watch the [v2 walkthrough video](assets/v2-walkthrough.mov) for a step-by-step demonstration of setup and usage.
 
 ## Inputs
 
