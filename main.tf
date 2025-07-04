@@ -5,7 +5,7 @@ provider "aws" {
 locals {
   function_name     = "${var.name}-${var.environment}"
   ssm_document_name = "${var.name}-inspector-findings-${var.environment}"
-  lambda_zip        = var.lambda_zip
+  lambda_zip        = var.path_to_lambda_zip
 }
 
 resource "aws_ssm_document" "remediation_document" {
@@ -20,32 +20,32 @@ resource "aws_ssm_document" "remediation_document" {
     "region": {
       "type": "String",
       "description": "(Required) The region to use.",
-      "default": "${var.remediation_options.region}"
+      "default": "${local.default_remediation_option.region}"
     },
     "rebootOption": {
       "type": "String",
       "description": "(Optional) Reboot option for patching. Allowed values: NoReboot, RebootIfNeeded, AlwaysReboot",
-      "default": "${var.remediation_options.reboot_option}"
+      "default": "${local.default_remediation_option.reboot_option}"
     },
     "targetEC2TagName": {
       "type": "String",
       "description": "The tag name to filter EC2 instances.",
-      "default": "${var.remediation_options.target_ec2_tag_name}"
+      "default": "${local.default_remediation_option.target_ec2_tag_name}"
     },
     "targetEC2TagValue": {
       "type": "String",
       "description": "The tag value to filter EC2 instances.",
-      "default": "${var.remediation_options.target_ec2_tag_value}"
+      "default": "${local.default_remediation_option.target_ec2_tag_value}"
     },
     "vulnerabilitySeverities": {
       "type": "String",
       "description": "(Optional) Comma separated list of vulnerability severities to filter findings. Allowed values are comma separated list of : CRITICAL, HIGH, MEDIUM, LOW, INFORMATIONAL",
-      "default": "${var.remediation_options.vulnerability_severities}"
+      "default": "${local.default_remediation_option.vulnerability_severities}"
     },
     "overrideFindingsForTargetInstancesIDs": {
       "type": "String",
       "description": "(Optional) Comma separated list of instance IDs to override findings for target instances. If not provided, all matched findings will be remediated. Values are in comma separated list of instance IDs.",
-      "default": "${var.remediation_options.override_findings_for_target_instances_ids}"
+      "default": "${local.default_remediation_option.override_findings_for_target_instances_ids}"
     }
   },
   "mainSteps": [
@@ -62,34 +62,62 @@ resource "aws_ssm_document" "remediation_document" {
 DOC
 }
 
-# Set up an EventBridge rule that triggers on AWS Inspector findings.
-resource "aws_cloudwatch_event_rule" "inspector_findings" {
-  name        = "manual-inspector-findings-rule"
-  description = "Triggers on AWS Inspector findings."
-
-  event_pattern = jsonencode({
-    source        = ["aws.inspector"],
-    "detail-type" = ["Inspector Finding"],
-    detail = {
-      severity = ["High", "Critical", "MEDIUM", "LOW", "INFORMATIONAL"]
-    }
-  })
+locals {
+  remediation_options_count  = length(var.remediation_options)
+  default_remediation_option = var.remediation_options[0]
+  remediation_schedule_crons = [
+    for day in var.remediation_schedule_days :
+    "cron(0 2 ${day} * ? *)"
+  ]
+  remediation_target_matrix = flatten([
+    for schedule_idx, schedule in local.remediation_schedule_crons : [
+      for opt_idx, opt in var.remediation_options : {
+        schedule_idx = schedule_idx
+        schedule     = schedule
+        opt_idx      = opt_idx
+        opt          = opt
+      }
+    ]
+  ])
 }
 
-resource "aws_cloudwatch_event_target" "ssm_remediation" {
-  rule      = aws_cloudwatch_event_rule.inspector_findings.name
-  target_id = "SSMVulneRemediationTarget"
-  arn       = aws_ssm_document.remediation_document.arn
+resource "aws_cloudwatch_event_rule" "inspector_findings_schedule" {
+  count               = length(local.remediation_schedule_crons)
+  name                = "${var.name}-rule-${count.index}-${var.environment}"
+  description         = "Triggers SSM remediation document on day ${var.remediation_schedule_days[count.index]} of each month."
+  schedule_expression = local.remediation_schedule_crons[count.index]
 
-  run_command_targets {
-    key    = "tag:${var.remediation_options.target_ec2_tag_name}"
-    values = [var.remediation_options.target_ec2_tag_value]
+  tags = {
+    Environment = var.environment
+    Name        = "${var.name}-rule-${var.environment}-${count.index}"
   }
+}
 
-
+resource "aws_cloudwatch_event_target" "ssm_remediation_scheduled" {
+  for_each = {
+    for item in local.remediation_target_matrix :
+    "${item.schedule_idx}-${item.opt_idx}" => item
+  }
+  rule      = aws_cloudwatch_event_rule.inspector_findings_schedule[each.value.schedule_idx].name
+  target_id = "SSMVulneRemediationTarget-${each.value.opt_idx}-${each.value.schedule_idx}-${each.value.opt.region}"
+  arn       = aws_ssm_document.remediation_document.arn
+  input = jsonencode({
+    region                                = each.value.opt.region,
+    rebootOption                          = each.value.opt.reboot_option,
+    targetEC2TagName                      = each.value.opt.target_ec2_tag_name,
+    targetEC2TagValue                     = each.value.opt.target_ec2_tag_value,
+    vulnerabilitySeverities               = each.value.opt.vulnerability_severities,
+    overrideFindingsForTargetInstancesIDs = each.value.opt.override_findings_for_target_instances_ids,
+  })
   role_arn = aws_iam_role.ssm_role.arn
 }
 
+resource "aws_cloudwatch_event_target" "sns_inspector_alert_scheduled" {
+  count     = var.ssn_notification_topic_arn != null ? length(local.remediation_schedule_crons) : 0
+  rule      = aws_cloudwatch_event_rule.inspector_findings_schedule[count.index].name
+  target_id = "InspectorCriticalHighAlertsSNS-${count.index}-${var.environment}"
+  arn       = var.ssn_notification_topic_arn
+}
 
 resource "aws_iam_role" "ssm_role" {
   name = "SSMVulneAutomationRole"
@@ -106,12 +134,16 @@ resource "aws_iam_role" "ssm_role" {
       }
     ]
   })
+}
 
-  inline_policy {
-    name = "SSMDocumentExecution"
-    policy = jsonencode({
-      Version = "2012-10-17",
-      Statement = [
+resource "aws_iam_role_policy" "ssm_document_execution" {
+  name = "SSMDocumentExecution"
+  role = aws_iam_role.ssm_role.id
+
+  policy = jsonencode({
+    Version = "2012-10-17",
+    Statement = concat(
+      [
         {
           Action = [
             "ssm:StartAutomationExecution",
@@ -120,11 +152,17 @@ resource "aws_iam_role" "ssm_role" {
           Effect   = "Allow",
           Resource = "arn:aws:ssm:*:*:document/${local.ssm_document_name}*"
         }
-      ]
-    })
-  }
+      ],
+      var.ssn_notification_topic_arn != null ? [
+        {
+          Effect   = "Allow",
+          Action   = "SNS:Publish",
+          Resource = var.ssn_notification_topic_arn
+        }
+      ] : []
+    )
+  })
 }
-
 
 resource "aws_iam_role" "lambda_execution_role" {
   name = "compliance-vulne-remediate_lambda_execution_role"
@@ -154,16 +192,16 @@ resource "aws_iam_role_policy" "lambda_policy" {
         "logs:PutLogEvents"
       ],
       Effect   = "Allow",
-      Resource = "arn:aws:logs:*:*:*"
+      Resource = "arn:aws:logs:*:${var.account_id}:*"
       },
       {
-        "Effect" : "Allow",
-        "Action" : [
+        Effect = "Allow",
+        Action = [
           "ssm:StartAutomationExecution",
           "ssm:DescribeAutomationExecutions",
           "ssm:GetAutomationExecution"
         ],
-        "Resource" : "*"
+        Resource = "arn:aws:ssm:*:${var.account_id}:automation-definition/*"
       },
       {
         "Effect" : "Allow",
@@ -173,11 +211,14 @@ resource "aws_iam_role_policy" "lambda_policy" {
         "Resource" : "*"
       },
       {
-        "Effect" : "Allow",
-        "Action" : [
+        Effect = "Allow",
+        Action = [
           "ssm:SendCommand"
         ],
-        "Resource" : "*"
+        Resource = [
+          "*",
+          "arn:aws:ec2:*:${var.account_id}:instance/*"
+        ]
       },
       {
         "Effect" : "Allow",
@@ -186,7 +227,7 @@ resource "aws_iam_role_policy" "lambda_policy" {
           "inspector2:ListFindings",
           "inspector2:updateFindings"
         ],
-        "Resource" : "*"
+        "Resource" : "arn:aws:inspector2:*:${var.account_id}:*"
       },
       {
         "Effect" : "Allow",
@@ -194,7 +235,7 @@ resource "aws_iam_role_policy" "lambda_policy" {
           "inspector:DescribeFindings",
           "inspector:ListFindings"
         ],
-        "Resource" : "*"
+        "Resource" : "arn:aws:inspector:*:${var.account_id}:*"
     }],
   })
 }
@@ -205,7 +246,7 @@ resource "aws_lambda_function" "inspector_remediation" {
   function_name    = local.function_name
   role             = aws_iam_role.lambda_execution_role.arn
   handler          = "index.handler"
-  runtime          = "nodejs18.x"
+  runtime          = "nodejs20.x"
   source_code_hash = filebase64sha256(local.lambda_zip)
 
   timeout = 300
@@ -220,20 +261,7 @@ resource "aws_lambda_function" "inspector_remediation" {
   tags = {
     Environment = var.environment
   }
+  tracing_config {
+    mode = "Active"
+  }
 }
-
-
-resource "aws_cloudwatch_event_target" "lambda" {
-  rule = aws_cloudwatch_event_rule.inspector_findings.name
-  arn  = aws_lambda_function.inspector_remediation.arn
-}
-
-resource "aws_lambda_permission" "allow_cloudwatch_to_call_lambda" {
-  statement_id  = "AllowExecutionFromCloudWatch"
-  action        = "lambda:InvokeFunction"
-  function_name = aws_lambda_function.inspector_remediation.function_name
-  principal     = "events.amazonaws.com"
-  source_arn    = aws_cloudwatch_event_rule.inspector_findings.arn
-}
-
-

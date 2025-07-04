@@ -6,6 +6,12 @@
 
 This Terraform module consists of the configuration for automating the remediation of AWS EC2 vulnerabilities using AWS Inspector findings. It provisions essential resources such as an SSM document, Lambda function, and CloudWatch event rules for automated vulnerability management.
 
+## Prerequisites
+
+> **Important**
+>
+> The AWS Systems Manager (SSM) agent **must be installed and running** on all EC2 instances you wish to remediate. Without SSM, this module cannot trigger remediation actions on your instances.
+
 ## Description
 
 This Terraform module sets up an automated vulnerability remediation environment optimized for production use. By creating an SSM document to define the remediation steps, setting up a Lambda function to execute the remediation, and establishing CloudWatch event rules to trigger the process based on AWS Inspector findings, the module offers a straightforward approach to managing EC2 vulnerabilities on AWS.
@@ -47,7 +53,7 @@ module "remediation" {
   aws_region       = "us-east-1"
   account_id       = "2123232323"
   lambda_log_group = "/aws/lambda/vulne-soldier-compliance-remediate"
-  lambda_zip       = "./lambda.zip"
+  path_to_lambda_zip       = "./lambda.zip"
   remediation_options = {
     region                                     = "us-east-1"
     reboot_option                              = "NoReboot"
@@ -58,6 +64,8 @@ module "remediation" {
     vulnerability_severities                   = ["CRITICAL, HIGH"]
     override_findings_for_target_instances_ids = []
   }
+  remediation_schedule_days = ["15", "L"] # Schedule remediation on the 15th and last day of each month
+  ssm_notification_topic_arn = null # Optional: Specify an SNS topic ARN to receive notifications for remediation events
 }
 
 provider "aws" {
@@ -70,6 +78,16 @@ provider "aws" {
 On successful deployment, navigate to the AWS Systems Manager console and search for the SSM document created by the module (vulne-soldier-compliance-remediate-inspector-findings) or similar. You can trigger the remediation process by running the document on the affected EC2 instances. You can also create an AWS CloudWatch event rule to automate the process based on AWS Inspector findings.
 
 
+## What's New in v2
+
+- Remediation is now **automated** using EventBridge rules, running by default with the `NoReboot` option for minimal disruption. You can update this option as needed in your configuration.
+
+## Walkthrough Video
+
+[![v2 Walkthrough Demo](assets/v2-walkthrough.png)](https://vimeo.com/1098910908?share=copy#t=3.684)
+
+> Watch the [v2 walkthrough video](https://vimeo.com/1098910908?share=copy#t=3.684) for a step-by-step demonstration of setup and usage.
+
 ## Inputs
 
 | Name                                     | Description                                                                 | Type          | Default                                    | Required |
@@ -79,14 +97,16 @@ On successful deployment, navigate to the AWS Systems Manager console and search
 | `aws_region`                             | AWS region where the resources will be created                              | `string`      | n/a                                        | yes      |
 | `account_id`                             | AWS account ID                                                              | `string`      | n/a                                        | yes      |
 | `lambda_log_group`                       | Name of the CloudWatch Log Group for the Lambda function                    | `string`      | n/a                                        | yes      |
-| `lambda_zip`                             | File location of the lambda zip file for remediation                                                              | `string`      | `lambda.zip`                                        | yes      |
-| `remediation_options`                    | Options for the remediation document                                        | `object`      | n/a                                        | yes      |
+| `path_to_lambda_zip`                             | File location of the lambda zip file for remediation                                                              | `string`      | `lambda.zip`                                        | yes      |
+| `remediation_options`                    | Options for the remediation document                                        | `object list`      | n/a                                        | yes      |
 | `remediation_options.region`             | The region to use                                                           | `string`      | `us-east-1`                                | no       |
 | `remediation_options.reboot_option`      | Reboot option for patching                                                  | `string`      | `NoReboot`                                 | no       |
 | `remediation_options.target_ec2_tag_name`| The tag name to filter EC2 instances                                        | `string`      | `AmazonECSManaged`                         | no       |
 | `remediation_options.target_ec2_tag_value`| The tag value to filter EC2 instances                                       | `string`      | `true`                                     | no       |
 | `remediation_options.vulnerability_severities`| Comma separated list of vulnerability severities to filter findings                        | `string`| `"CRITICAL, HIGH"`                       | no       |
 | `remediation_options.override_findings_for_target_instances_ids`| Comma separated list of instance IDs to override findings for target instances              | `string`| `""`                                       | no       |
+| `remediation_schedule_days`              | Days of the month to schedule remediation (e.g., ["15", "L"])               | `list(string)`| `["15", "L"]`                             | no       |
+| `ssm_notification_topic_arn`             | SNS topic ARN to receive notifications for remediation events (optional) | `string`      | `null`                                     | no       |
 
 ## Outputs
 
