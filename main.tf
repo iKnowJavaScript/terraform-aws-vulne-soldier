@@ -154,16 +154,16 @@ resource "aws_iam_role_policy" "lambda_policy" {
         "logs:PutLogEvents"
       ],
       Effect   = "Allow",
-      Resource = "arn:aws:logs:*:*:*"
+      Resource = "arn:aws:logs:*:${var.account_id}:*"
       },
       {
-        "Effect" : "Allow",
-        "Action" : [
+        Effect = "Allow",
+        Action = [
           "ssm:StartAutomationExecution",
           "ssm:DescribeAutomationExecutions",
           "ssm:GetAutomationExecution"
         ],
-        "Resource" : "*"
+        Resource = "arn:aws:ssm:*:${var.account_id}:automation-definition/*"
       },
       {
         "Effect" : "Allow",
@@ -173,11 +173,14 @@ resource "aws_iam_role_policy" "lambda_policy" {
         "Resource" : "*"
       },
       {
-        "Effect" : "Allow",
-        "Action" : [
+        Effect = "Allow",
+        Action = [
           "ssm:SendCommand"
         ],
-        "Resource" : "*"
+        Resource = [
+          "*",
+          "arn:aws:ec2:*:${var.account_id}:instance/*"
+        ]
       },
       {
         "Effect" : "Allow",
@@ -186,15 +189,15 @@ resource "aws_iam_role_policy" "lambda_policy" {
           "inspector2:ListFindings",
           "inspector2:updateFindings"
         ],
-        "Resource" : "*"
+        "Resource" : "arn:aws:inspector2:*:${var.account_id}:*"
       },
-      {
+       {
         "Effect" : "Allow",
         "Action" : [
           "inspector:DescribeFindings",
           "inspector:ListFindings"
         ],
-        "Resource" : "*"
+        "Resource" : "arn:aws:inspector:*:${var.account_id}:*"
     }],
   })
 }
