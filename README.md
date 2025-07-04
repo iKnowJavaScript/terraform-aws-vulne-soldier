@@ -84,9 +84,9 @@ On successful deployment, navigate to the AWS Systems Manager console and search
 
 ## Walkthrough Video
 
-[![v2 Walkthrough](assets/v2-walkthrough.mov)](assets/v2-walkthrough.mov)
+[![v2 Walkthrough Demo](assets/v2-walkthrough.png)](https://vimeo.com/1098910908?share=copy#t=3.684)
 
-> Watch the [v2 walkthrough video](assets/v2-walkthrough.mov) for a step-by-step demonstration of setup and usage.
+> Watch the [v2 walkthrough video](https://vimeo.com/1098910908?share=copy#t=3.684) for a step-by-step demonstration of setup and usage.
 
 ## Inputs
 
