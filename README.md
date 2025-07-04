@@ -47,7 +47,7 @@ module "remediation" {
   aws_region       = "us-east-1"
   account_id       = "2123232323"
   lambda_log_group = "/aws/lambda/vulne-soldier-compliance-remediate"
-  lambda_zip       = "./lambda.zip"
+  path_to_lambda_zip       = "./lambda.zip"
   remediation_options = {
     region                                     = "us-east-1"
     reboot_option                              = "NoReboot"
@@ -79,7 +79,7 @@ On successful deployment, navigate to the AWS Systems Manager console and search
 | `aws_region`                             | AWS region where the resources will be created                              | `string`      | n/a                                        | yes      |
 | `account_id`                             | AWS account ID                                                              | `string`      | n/a                                        | yes      |
 | `lambda_log_group`                       | Name of the CloudWatch Log Group for the Lambda function                    | `string`      | n/a                                        | yes      |
-| `lambda_zip`                             | File location of the lambda zip file for remediation                                                              | `string`      | `lambda.zip`                                        | yes      |
+| `path_to_lambda_zip`                             | File location of the lambda zip file for remediation                                                              | `string`      | `lambda.zip`                                        | yes      |
 | `remediation_options`                    | Options for the remediation document                                        | `object`      | n/a                                        | yes      |
 | `remediation_options.region`             | The region to use                                                           | `string`      | `us-east-1`                                | no       |
 | `remediation_options.reboot_option`      | Reboot option for patching                                                  | `string`      | `NoReboot`                                 | no       |

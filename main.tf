@@ -65,41 +65,57 @@ DOC
 locals {
   remediation_options_count  = length(var.remediation_options)
   default_remediation_option = var.remediation_options[0]
+  remediation_schedule_crons = [
+    for day in var.remediation_schedule_days :
+    "cron(0 2 ${day} * ? *)"
+  ]
+  remediation_target_matrix = flatten([
+    for schedule_idx, schedule in local.remediation_schedule_crons : [
+      for opt_idx, opt in var.remediation_options : {
+        schedule_idx = schedule_idx
+        schedule     = schedule
+        opt_idx      = opt_idx
+        opt          = opt
+      }
+    ]
+  ])
 }
 
-resource "aws_cloudwatch_event_rule" "inspector_findings_last" {
-  count               = local.remediation_options_count
-  name                = "manual-inspector-findings-rule-last-${count.index}-${var.remediation_options[count.index].region}"
-  description         = "Triggers SSM remediation document on the last day of each month for remediation option ${count.index}."
-  schedule_expression = "cron(0 2 L * ? *)"
+resource "aws_cloudwatch_event_rule" "inspector_findings_schedule" {
+  count               = length(local.remediation_schedule_crons)
+  name                = "${var.name}-rule-${count.index}-${var.environment}"
+  description         = "Triggers SSM remediation document on day ${var.remediation_schedule_days[count.index]} of each month."
+  schedule_expression = local.remediation_schedule_crons[count.index]
 
   tags = {
     Environment = var.environment
-    Name        = "manual-inspector-findings-rule-last-${var.environment}-${count.index}"
+    Name        = "${var.name}-rule-${var.environment}-${count.index}"
   }
 }
 
-resource "aws_cloudwatch_event_target" "ssm_remediation_last" {
-  count     = local.remediation_options_count
-  rule      = aws_cloudwatch_event_rule.inspector_findings_last[count.index].name
-  target_id = "SSMVulneRemediationTarget-${count.index}-${var.remediation_options[count.index].region}"
+resource "aws_cloudwatch_event_target" "ssm_remediation_scheduled" {
+  for_each = {
+    for item in local.remediation_target_matrix :
+    "${item.schedule_idx}-${item.opt_idx}" => item
+  }
+  rule      = aws_cloudwatch_event_rule.inspector_findings_schedule[each.value.schedule_idx].name
+  target_id = "SSMVulneRemediationTarget-${each.value.opt_idx}-${each.value.schedule_idx}-${each.value.opt.region}"
   arn       = aws_ssm_document.remediation_document.arn
   input = jsonencode({
-    region                                = var.remediation_options[count.index].region,
-    rebootOption                          = var.remediation_options[count.index].reboot_option,
-    targetEC2TagName                      = var.remediation_options[count.index].target_ec2_tag_name,
-    targetEC2TagValue                     = var.remediation_options[count.index].target_ec2_tag_value,
-    vulnerabilitySeverities               = var.remediation_options[count.index].vulnerability_severities,
-    overrideFindingsForTargetInstancesIDs = var.remediation_options[count.index].override_findings_for_target_instances_ids,
+    region                                = each.value.opt.region,
+    rebootOption                          = each.value.opt.reboot_option,
+    targetEC2TagName                      = each.value.opt.target_ec2_tag_name,
+    targetEC2TagValue                     = each.value.opt.target_ec2_tag_value,
+    vulnerabilitySeverities               = each.value.opt.vulnerability_severities,
+    overrideFindingsForTargetInstancesIDs = each.value.opt.override_findings_for_target_instances_ids,
   })
-
   role_arn = aws_iam_role.ssm_role.arn
 }
 
-resource "aws_cloudwatch_event_target" "sns_inspector_alert_last" {
-  count     = local.remediation_options_count
-  rule      = aws_cloudwatch_event_rule.inspector_findings_last[count.index].name
-  target_id = "InspectorCriticalHighAlertsSNS-Last-${count.index}-${var.remediation_options[count.index].region}"
+resource "aws_cloudwatch_event_target" "sns_inspector_alert_scheduled" {
+  count     = var.ssn_notification_topic_arn != null ? length(local.remediation_schedule_crons) : 0
+  rule      = aws_cloudwatch_event_rule.inspector_findings_schedule[count.index].name
+  target_id = "InspectorCriticalHighAlertsSNS-${count.index}-${var.environment}"
   arn       = var.ssn_notification_topic_arn
 }
 
