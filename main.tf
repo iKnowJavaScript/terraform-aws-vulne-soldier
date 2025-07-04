@@ -261,5 +261,7 @@ resource "aws_lambda_function" "inspector_remediation" {
   tags = {
     Environment = var.environment
   }
+  tracing_config {
+    mode = "Active"
+  }
 }
-
