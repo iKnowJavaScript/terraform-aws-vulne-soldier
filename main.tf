@@ -20,32 +20,32 @@ resource "aws_ssm_document" "remediation_document" {
     "region": {
       "type": "String",
       "description": "(Required) The region to use.",
-      "default": "${var.remediation_options.region}"
+      "default": "${local.default_remediation_option.region}"
     },
     "rebootOption": {
       "type": "String",
       "description": "(Optional) Reboot option for patching. Allowed values: NoReboot, RebootIfNeeded, AlwaysReboot",
-      "default": "${var.remediation_options.reboot_option}"
+      "default": "${local.default_remediation_option.reboot_option}"
     },
     "targetEC2TagName": {
       "type": "String",
       "description": "The tag name to filter EC2 instances.",
-      "default": "${var.remediation_options.target_ec2_tag_name}"
+      "default": "${local.default_remediation_option.target_ec2_tag_name}"
     },
     "targetEC2TagValue": {
       "type": "String",
       "description": "The tag value to filter EC2 instances.",
-      "default": "${var.remediation_options.target_ec2_tag_value}"
+      "default": "${local.default_remediation_option.target_ec2_tag_value}"
     },
     "vulnerabilitySeverities": {
       "type": "String",
       "description": "(Optional) Comma separated list of vulnerability severities to filter findings. Allowed values are comma separated list of : CRITICAL, HIGH, MEDIUM, LOW, INFORMATIONAL",
-      "default": "${var.remediation_options.vulnerability_severities}"
+      "default": "${local.default_remediation_option.vulnerability_severities}"
     },
     "overrideFindingsForTargetInstancesIDs": {
       "type": "String",
       "description": "(Optional) Comma separated list of instance IDs to override findings for target instances. If not provided, all matched findings will be remediated. Values are in comma separated list of instance IDs.",
-      "default": "${var.remediation_options.override_findings_for_target_instances_ids}"
+      "default": "${local.default_remediation_option.override_findings_for_target_instances_ids}"
     }
   },
   "mainSteps": [
@@ -62,36 +62,44 @@ resource "aws_ssm_document" "remediation_document" {
 DOC
 }
 
+locals {
+  remediation_options_count  = length(var.remediation_options)
+  default_remediation_option = var.remediation_options[0]
+}
+
 resource "aws_cloudwatch_event_rule" "inspector_findings_last" {
-  name                = "manual-inspector-findings-rule-last"
-  description         = "Triggers SSM remediation document on the last day of each month."
+  count               = local.remediation_options_count
+  name                = "manual-inspector-findings-rule-last-${count.index}-${var.remediation_options[count.index].region}"
+  description         = "Triggers SSM remediation document on the last day of each month for remediation option ${count.index}."
   schedule_expression = "cron(0 2 L * ? *)"
 
   tags = {
     Environment = var.environment
-    Name        = "manual-inspector-findings-rule-last-${var.environment}"
+    Name        = "manual-inspector-findings-rule-last-${var.environment}-${count.index}"
   }
 }
 
 resource "aws_cloudwatch_event_target" "ssm_remediation_last" {
-  rule      = aws_cloudwatch_event_rule.inspector_findings_last.name
-  target_id = "SSMVulneRemediationTarget"
+  count     = local.remediation_options_count
+  rule      = aws_cloudwatch_event_rule.inspector_findings_last[count.index].name
+  target_id = "SSMVulneRemediationTarget-${count.index}-${var.remediation_options[count.index].region}"
   arn       = aws_ssm_document.remediation_document.arn
-  input     = jsonencode({ 
-    region = var.remediation_options.region, 
-    rebootOption = var.remediation_options.reboot_option,
-    targetEC2TagName = var.remediation_options.target_ec2_tag_name,
-    targetEC2TagValue = var.remediation_options.target_ec2_tag_value,
-    vulnerabilitySeverities = var.remediation_options.vulnerability_severities,
-    overrideFindingsForTargetInstancesIDs = var.remediation_options.override_findings_for_target_instances_ids,
+  input = jsonencode({
+    region                                = var.remediation_options[count.index].region,
+    rebootOption                          = var.remediation_options[count.index].reboot_option,
+    targetEC2TagName                      = var.remediation_options[count.index].target_ec2_tag_name,
+    targetEC2TagValue                     = var.remediation_options[count.index].target_ec2_tag_value,
+    vulnerabilitySeverities               = var.remediation_options[count.index].vulnerability_severities,
+    overrideFindingsForTargetInstancesIDs = var.remediation_options[count.index].override_findings_for_target_instances_ids,
   })
 
-  role_arn  = aws_iam_role.ssm_role.arn
+  role_arn = aws_iam_role.ssm_role.arn
 }
 
 resource "aws_cloudwatch_event_target" "sns_inspector_alert_last" {
-  rule      = aws_cloudwatch_event_rule.inspector_findings_last.name
-  target_id = "InspectorCriticalHighAlertsSNS-Last"
+  count     = local.remediation_options_count
+  rule      = aws_cloudwatch_event_rule.inspector_findings_last[count.index].name
+  target_id = "InspectorCriticalHighAlertsSNS-Last-${count.index}-${var.remediation_options[count.index].region}"
   arn       = var.ssn_notification_topic_arn
 }
 
@@ -205,7 +213,7 @@ resource "aws_iam_role_policy" "lambda_policy" {
         ],
         "Resource" : "arn:aws:inspector2:*:${var.account_id}:*"
       },
-       {
+      {
         "Effect" : "Allow",
         "Action" : [
           "inspector:DescribeFindings",
