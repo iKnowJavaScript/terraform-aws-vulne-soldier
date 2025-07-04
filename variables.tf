@@ -30,12 +30,12 @@ variable "lambda_log_group" {
   type        = string
 }
 
-variable "lambda_zip" {
+variable "path_to_lambda_zip" {
   description = "File location of the lambda zip file for remediation."
   type        = string
   validation {
-    condition     = can(regex("^.+\\.zip$", var.lambda_zip))
-    error_message = "The lambda_zip must be a path to a zip file."
+    condition     = can(regex("^.+\\.zip$", var.path_to_lambda_zip))
+    error_message = "The path_to_lambda_zip must be a path to a zip file."
   }
 }
 
@@ -64,5 +64,15 @@ variable "remediation_options" {
   validation {
     condition     = can(regex("^([A-Z]+, )*[A-Z]+$", var.remediation_options.vulnerability_severities))
     error_message = "The vulnerability_severities must be a comma-separated list of severities in uppercase."
+  }
+}
+
+variable "ssn_notification_topic_arn" {
+  description = "SNS topic ARN for notifications"
+  type        = string
+  default     = null
+  validation {
+    condition     = var.ssn_notification_topic_arn == null || can(regex("^arn:aws:sns:[a-z0-9-]+:[0-9]{12}:[a-zA-Z0-9_-]+$", var.ssn_notification_topic_arn))
+    error_message = "The ssn_notification_topic_arn must be null or a valid SNS topic ARN."
   }
 }

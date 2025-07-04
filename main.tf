@@ -5,7 +5,7 @@ provider "aws" {
 locals {
   function_name     = "${var.name}-${var.environment}"
   ssm_document_name = "${var.name}-inspector-findings-${var.environment}"
-  lambda_zip        = var.lambda_zip
+  lambda_zip        = var.path_to_lambda_zip
 }
 
 resource "aws_ssm_document" "remediation_document" {
@@ -114,21 +114,25 @@ resource "aws_iam_role_policy" "ssm_document_execution" {
 
   policy = jsonencode({
     Version = "2012-10-17",
-    Statement = [
-      {
-        Action = [
-          "ssm:StartAutomationExecution",
-          "ssm:GetAutomationExecution"
-        ],
-        Effect   = "Allow",
-        Resource = "arn:aws:ssm:*:*:document/${local.ssm_document_name}*"
-      },
-      {
-        Effect   = "Allow",
-        Action   = "SNS:Publish",
-        Resource = var.ssn_notification_topic_arn
-      }
-    ]
+    Statement = concat(
+      [
+        {
+          Action = [
+            "ssm:StartAutomationExecution",
+            "ssm:GetAutomationExecution"
+          ],
+          Effect   = "Allow",
+          Resource = "arn:aws:ssm:*:*:document/${local.ssm_document_name}*"
+        }
+      ],
+      var.ssn_notification_topic_arn != null ? [
+        {
+          Effect   = "Allow",
+          Action   = "SNS:Publish",
+          Resource = var.ssn_notification_topic_arn
+        }
+      ] : []
+    )
   })
 }
 
