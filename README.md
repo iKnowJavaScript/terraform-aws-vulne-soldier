@@ -58,6 +58,8 @@ module "remediation" {
     vulnerability_severities                   = ["CRITICAL, HIGH"]
     override_findings_for_target_instances_ids = []
   }
+  remediation_schedule_days = ["15", "L"] # Schedule remediation on the 15th and last day of each month
+  ssm_notification_topic_arn = null # Optional: Specify an SNS topic ARN to receive notifications for remediation events
 }
 
 provider "aws" {
@@ -80,13 +82,15 @@ On successful deployment, navigate to the AWS Systems Manager console and search
 | `account_id`                             | AWS account ID                                                              | `string`      | n/a                                        | yes      |
 | `lambda_log_group`                       | Name of the CloudWatch Log Group for the Lambda function                    | `string`      | n/a                                        | yes      |
 | `path_to_lambda_zip`                             | File location of the lambda zip file for remediation                                                              | `string`      | `lambda.zip`                                        | yes      |
-| `remediation_options`                    | Options for the remediation document                                        | `object`      | n/a                                        | yes      |
+| `remediation_options`                    | Options for the remediation document                                        | `object list`      | n/a                                        | yes      |
 | `remediation_options.region`             | The region to use                                                           | `string`      | `us-east-1`                                | no       |
 | `remediation_options.reboot_option`      | Reboot option for patching                                                  | `string`      | `NoReboot`                                 | no       |
 | `remediation_options.target_ec2_tag_name`| The tag name to filter EC2 instances                                        | `string`      | `AmazonECSManaged`                         | no       |
 | `remediation_options.target_ec2_tag_value`| The tag value to filter EC2 instances                                       | `string`      | `true`                                     | no       |
 | `remediation_options.vulnerability_severities`| Comma separated list of vulnerability severities to filter findings                        | `string`| `"CRITICAL, HIGH"`                       | no       |
 | `remediation_options.override_findings_for_target_instances_ids`| Comma separated list of instance IDs to override findings for target instances              | `string`| `""`                                       | no       |
+| `remediation_schedule_days`              | Days of the month to schedule remediation (e.g., ["15", "L"])               | `list(string)`| `["15", "L"]`                             | no       |
+| `ssm_notification_topic_arn`             | SNS topic ARN to receive notifications for remediation events (optional) | `string`      | `null`                                     | no       |
 
 ## Outputs
 
