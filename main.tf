@@ -106,25 +106,31 @@ resource "aws_iam_role" "ssm_role" {
       }
     ]
   })
-
-  inline_policy {
-    name = "SSMDocumentExecution"
-    policy = jsonencode({
-      Version = "2012-10-17",
-      Statement = [
-        {
-          Action = [
-            "ssm:StartAutomationExecution",
-            "ssm:GetAutomationExecution"
-          ],
-          Effect   = "Allow",
-          Resource = "arn:aws:ssm:*:*:document/${local.ssm_document_name}*"
-        }
-      ]
-    })
-  }
 }
 
+resource "aws_iam_role_policy" "ssm_document_execution" {
+  name = "SSMDocumentExecution"
+  role = aws_iam_role.ssm_role.id
+
+  policy = jsonencode({
+    Version = "2012-10-17",
+    Statement = [
+      {
+        Action = [
+          "ssm:StartAutomationExecution",
+          "ssm:GetAutomationExecution"
+        ],
+        Effect   = "Allow",
+        Resource = "arn:aws:ssm:*:*:document/${local.ssm_document_name}*"
+      },
+      {
+        Effect   = "Allow",
+        Action   = "SNS:Publish",
+        Resource = var.ssn_notification_topic_arn
+      }
+    ]
+  })
+}
 
 resource "aws_iam_role" "lambda_execution_role" {
   name = "compliance-vulne-remediate_lambda_execution_role"
@@ -208,7 +214,7 @@ resource "aws_lambda_function" "inspector_remediation" {
   function_name    = local.function_name
   role             = aws_iam_role.lambda_execution_role.arn
   handler          = "index.handler"
-  runtime          = "nodejs18.x"
+  runtime          = "nodejs20.x"
   source_code_hash = filebase64sha256(local.lambda_zip)
 
   timeout = 300
@@ -224,19 +230,4 @@ resource "aws_lambda_function" "inspector_remediation" {
     Environment = var.environment
   }
 }
-
-
-resource "aws_cloudwatch_event_target" "lambda" {
-  rule = aws_cloudwatch_event_rule.inspector_findings.name
-  arn  = aws_lambda_function.inspector_remediation.arn
-}
-
-resource "aws_lambda_permission" "allow_cloudwatch_to_call_lambda" {
-  statement_id  = "AllowExecutionFromCloudWatch"
-  action        = "lambda:InvokeFunction"
-  function_name = aws_lambda_function.inspector_remediation.function_name
-  principal     = "events.amazonaws.com"
-  source_arn    = aws_cloudwatch_event_rule.inspector_findings.arn
-}
-
 
